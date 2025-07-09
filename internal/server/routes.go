@@ -42,6 +42,33 @@ func (s *Server) RegisterRoutes(authCfg config.AuthConfig) http.Handler {
 	e.GET("/", s.APIInfoHandler)
 	e.GET("/health", s.healthHandler)
 
+	// API group
+	api := e.Group("/api")
+
+	// Health check endpoint
+	api.GET("/health", s.crawlHandler.HealthCheck)
+
+	// Crawl endpoints
+	crawlGroup := api.Group("/crawl")
+	{
+		// Create new crawl request
+		crawlGroup.POST("", s.crawlHandler.CreateCrawlRequest)
+
+		// Get all crawl results (with pagination, filtering, sorting)
+		crawlGroup.GET("", s.crawlHandler.GetCrawlResults)
+
+		// Get crawl statistics
+		crawlGroup.GET("/stats", s.crawlHandler.GetCrawlStats)
+
+		// Bulk operations
+		crawlGroup.POST("/rerun", s.crawlHandler.RerunCrawlResults)
+		crawlGroup.DELETE("", s.crawlHandler.DeleteCrawlResults)
+
+		// Individual crawl result operations
+		crawlGroup.GET("/:id", s.crawlHandler.GetCrawlResult)
+		crawlGroup.GET("/:id/status", s.crawlHandler.GetCrawlStatus)
+	}
+
 	return e
 }
 
