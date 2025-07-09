@@ -11,6 +11,8 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/joho/godotenv/autoload"
+
+	"url-crawler/internal/config"
 )
 
 // Service represents a service that interacts with a database.
@@ -22,6 +24,9 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+
+	// GetDB returns the underlying database connection
+	GetDB() *sql.DB
 }
 
 type service struct {
@@ -29,30 +34,39 @@ type service struct {
 }
 
 var (
-	dbname     = os.Getenv("BLUEPRINT_DB_DATABASE")
-	password   = os.Getenv("BLUEPRINT_DB_PASSWORD")
-	username   = os.Getenv("BLUEPRINT_DB_USERNAME")
-	port       = os.Getenv("BLUEPRINT_DB_PORT")
-	host       = os.Getenv("BLUEPRINT_DB_HOST")
+	dbname     = os.Getenv("URL_CRAWLER_DB_DATABASE")
 	dbInstance *service
 )
 
-func New() Service {
-	// Reuse Connection
+// NewWithConfig creates a new database service using the provided configuration
+func New(cfg config.DatabaseConfig) Service {
+	// Reuse Connection if already exists
 	if dbInstance != nil {
 		return dbInstance
 	}
 
+	// Build DSN with configuration values
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
+
 	// Opening a driver typically will not attempt to connect to the database.
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", username, password, host, port, dbname))
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		// This will not be a connection error, but a DSN parse error or
-		// another initialization error.
-		log.Fatal(err)
+		log.Fatalf("Failed to open database connection: %v", err)
 	}
-	db.SetConnMaxLifetime(0)
-	db.SetMaxIdleConns(50)
-	db.SetMaxOpenConns(50)
+
+	// Configure connection pool with config values
+	db.SetConnMaxLifetime(cfg.MaxLife)
+	db.SetMaxIdleConns(cfg.MaxIdle)
+	db.SetMaxOpenConns(cfg.MaxOpen)
+
+	// Test the connection
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Failed to ping database: %v", err)
+	}
+
+	log.Printf("Database connection established: %s@%s:%s/%s",
+		cfg.Username, cfg.Host, cfg.Port, cfg.Database)
 
 	dbInstance = &service{
 		db: db,
@@ -117,4 +131,9 @@ func (s *service) Health() map[string]string {
 func (s *service) Close() error {
 	log.Printf("Disconnected from database: %s", dbname)
 	return s.db.Close()
+}
+
+// GetDB returns the underlying database connection
+func (s *service) GetDB() *sql.DB {
+	return s.db
 }

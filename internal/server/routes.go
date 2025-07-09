@@ -5,13 +5,21 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	"url-crawler/internal/config"
+	customMiddleware "url-crawler/internal/middleware"
 )
 
-func (s *Server) RegisterRoutes() http.Handler {
+func (s *Server) RegisterRoutes(authCfg config.AuthConfig) http.Handler {
 	e := echo.New()
+
+	//Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.Use(customMiddleware.RequestIDMiddleware())
+	e.Use(customMiddleware.SecurityHeadersMiddleware())
 
+	// CORS configuration
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{"https://*", "http://*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
@@ -20,21 +28,45 @@ func (s *Server) RegisterRoutes() http.Handler {
 		MaxAge:           300,
 	}))
 
-	e.GET("/", s.HelloWorldHandler)
+	// Setup authentication using provided configuration
+	authConfig := customMiddleware.NewAuthConfig(authCfg)
 
+	// Rate limiting using configuration
+	rateLimitConfig := customMiddleware.NewRateLimitConfig(authCfg)
+
+	// Apply authentication and rate limiting middleware
+	e.Use(customMiddleware.AuthMiddleware(authConfig))
+	e.Use(customMiddleware.RateLimitMiddleware(rateLimitConfig))
+
+	// Basic routes (no auth required)
+	e.GET("/", s.APIInfoHandler)
 	e.GET("/health", s.healthHandler)
 
 	return e
 }
 
-func (s *Server) HelloWorldHandler(c echo.Context) error {
+func (s *Server) APIInfoHandler(c echo.Context) error {
 	resp := map[string]string{
-		"message": "Hello World",
+		"message": "URL Crawler API",
+		"version": "1.0.0",
+		"status":  "healthy",
 	}
 
 	return c.JSON(http.StatusOK, resp)
 }
 
 func (s *Server) healthHandler(c echo.Context) error {
-	return c.JSON(http.StatusOK, s.db.Health())
+	dbHealth := s.db.Health()
+
+	response := map[string]interface{}{
+		"status":    "healthy",
+		"timestamp": c.Get("request_id"),
+		"database":  dbHealth,
+		"services": map[string]string{
+			"crawler": "healthy",
+			"queue":   "healthy",
+		},
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
