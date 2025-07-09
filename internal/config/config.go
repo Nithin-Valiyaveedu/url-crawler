@@ -15,6 +15,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Crawler  CrawlerConfig
+	Queue    QueueConfig
 	Auth     AuthConfig
 }
 
@@ -53,6 +54,13 @@ type CrawlerConfig struct {
 	FirecrawlAPIURL string
 }
 
+type QueueConfig struct {
+	Workers    int
+	BufferSize int
+	MaxRetries int
+	RetryDelay time.Duration
+}
+
 type AuthConfig struct {
 	APIKeys           map[string]string
 	RequireAuth       bool
@@ -66,6 +74,7 @@ func Load() *Config {
 		Server:   loadServerConfig(),
 		Database: loadDatabaseConfig(),
 		Crawler:  loadCrawlerConfig(),
+		Queue:    loadQueueConfig(),
 		Auth:     loadAuthConfig(),
 	}
 }
@@ -135,6 +144,20 @@ func loadCrawlerConfig() CrawlerConfig {
 	}
 }
 
+func loadQueueConfig() QueueConfig {
+	workers, _ := strconv.Atoi(getEnv("QUEUE_WORKERS", "3"))
+	bufferSize, _ := strconv.Atoi(getEnv("QUEUE_BUFFER_SIZE", "100"))
+	maxRetries, _ := strconv.Atoi(getEnv("QUEUE_MAX_RETRIES", "3"))
+	retryDelay, _ := time.ParseDuration(getEnv("QUEUE_RETRY_DELAY", "5s"))
+
+	return QueueConfig{
+		Workers:    workers,
+		BufferSize: bufferSize,
+		MaxRetries: maxRetries,
+		RetryDelay: retryDelay,
+	}
+}
+
 func loadAuthConfig() AuthConfig {
 	requireAuth, _ := strconv.ParseBool(getEnv("AUTH_REQUIRED", "true"))
 	rateLimitEnabled, _ := strconv.ParseBool(getEnv("RATE_LIMIT_ENABLED", "true"))
@@ -154,6 +177,11 @@ func loadAuthConfig() AuthConfig {
 			apiKeys[parts[1]] = name
 		}
 	}
+
+	// // Add default development key if no keys are configured
+	// if len(apiKeys) == 0 && !requireAuth {
+	// 	apiKeys["dev-api-key-12345"] = "development"
+	// }
 
 	return AuthConfig{
 		APIKeys:           apiKeys,
@@ -196,6 +224,14 @@ func (c *Config) Validate() error {
 		return ErrMissingDBUsername
 	}
 
+	if c.Queue.Workers <= 0 {
+		return ErrInvalidWorkerCount
+	}
+
+	if c.Queue.BufferSize <= 0 {
+		return ErrInvalidBufferSize
+	}
+
 	return nil
 }
 
@@ -213,6 +249,7 @@ func (c *Config) LogConfig() {
 	log.Println("=== URL Crawler Configuration ===")
 	log.Printf("Server: %s:%d", c.Server.Host, c.Server.Port)
 	log.Printf("Database: %s:%s@%s:%s/%s", c.Database.Username, "***", c.Database.Host, c.Database.Port, c.Database.Database)
+	log.Printf("Queue Workers: %d", c.Queue.Workers)
 	log.Printf("Auth Required: %t", c.Auth.RequireAuth)
 	log.Printf("Rate Limiting: %t", c.Auth.RateLimitEnabled)
 	log.Printf("Crawler Timeout: %s", c.Crawler.Timeout)
