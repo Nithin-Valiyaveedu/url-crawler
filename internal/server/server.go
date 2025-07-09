@@ -9,14 +9,23 @@ import (
 
 	"url-crawler/internal/config"
 	"url-crawler/internal/database"
+	"url-crawler/internal/handlers"
 	"url-crawler/internal/services"
 )
 
 type Server struct {
-	port           int
-	db             database.Service
+	port int
+
+	//database
+	db database.Service
+
+	// Services
 	crawlerService services.Crawler
+	queueService   *services.QueueService
 	crawlStorage   *database.CrawlStorage
+
+	// Handlers
+	crawlHandler *handlers.CrawlHandler
 }
 
 func NewServer() *http.Server {
@@ -45,12 +54,23 @@ func NewServer() *http.Server {
 	}
 	log.Printf("Initialized Firecrawl crawler service")
 
+	// Initialize queue service with configuration
+	queueService := services.NewQueueService(cfg.Queue.Workers, crawlerService, crawlStorage)
+
+	// Initialize handlers
+	crawlHandler := handlers.NewCrawlHandler(queueService, crawlStorage)
+
 	newServer := &Server{
 		port:           cfg.Server.Port,
 		db:             dbService,
 		crawlerService: crawlerService,
+		queueService:   queueService,
 		crawlStorage:   crawlStorage,
+		crawlHandler:   crawlHandler,
 	}
+
+	// Start the queue service
+	queueService.Start()
 
 	// Declare Server config with proper configuration values
 	server := &http.Server{
