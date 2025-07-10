@@ -1,69 +1,94 @@
-# React + TypeScript + Vite
+# URL Crawler Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React TypeScript frontend for the URL Crawler application with real-time crawling analysis and visualization.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Submit URLs for crawling analysis
+- Real-time status updates with automatic polling
+- Paginated, sortable, and filterable results table
+- Detailed analysis view with interactive charts
+- Bulk operations (delete, re-run)
+- Responsive design with modern UI
 
-## Expanding the ESLint configuration
+## API Integration
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+This frontend connects to the Go backend API. Make sure your backend is running before starting the frontend.
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Environment Configuration
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+Create a `.env` file in the frontend directory with the following configuration:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Backend API Configuration
+VITE_API_BASE_URL=http://localhost:8080
+VITE_API_KEY=your-api-key-here
+
+# Environment
+VITE_ENV=development
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Available Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- `VITE_API_BASE_URL`: Backend API base URL (default: http://localhost:8080)
+- `VITE_API_KEY`: API key for authentication (default: dev-api-key-12345)
+- `VITE_ENV`: Environment mode (development/production)
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Setup and Installation
+
+1. Install dependencies:
+
+```bash
+npm install
 ```
+
+2. Configure environment variables (create `.env` file as shown above)
+
+3. Start the development server:
+
+```bash
+npm run dev
+```
+
+4. Open [http://localhost:5173](http://localhost:5173) in your browser
+
+## Backend Requirements
+
+Make sure the Go backend is running with the following endpoints available:
+
+- `POST /api/crawl` - Submit URL for crawling
+- `GET /api/crawl` - Get paginated crawl results
+- `GET /api/crawl/:id` - Get specific crawl result
+- `DELETE /api/crawl` - Bulk delete crawl results
+- `POST /api/crawl/rerun` - Re-run crawl analysis
+- `GET /api/crawl/stats` - Get crawl statistics
+- `GET /api/health` - Health check
+
+## API Authentication
+
+The frontend uses Bearer token authentication. Set your API key in the environment variables:
+
+```bash
+VITE_API_KEY=your-api-key-here
+```
+
+The API key should match the one configured in your Go backend.
+
+## Development
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+
+## Technologies Used
+
+- React 18 with TypeScript
+- Vite for build tooling
+- Tailwind CSS for styling
+- Recharts for data visualization
+- Lucide React for icons
+
+## Real-time Updates
+
+The application automatically polls the backend every 5 seconds when there are active crawling tasks (running or queued status). This ensures the UI stays up-to-date with the latest crawling progress.
