@@ -3,10 +3,18 @@
 # Build the application
 all: build test
 
+db-setup:
+	@echo "Setting up database and user..."
+	@mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS url_crawler; CREATE USER IF NOT EXISTS 'crawler_user'@'localhost' IDENTIFIED BY 'crawler_password123'; GRANT ALL PRIVILEGES ON url_crawler.* TO 'crawler_user'@'localhost'; FLUSH PRIVILEGES;"
+	@echo "✅ Database and user created!"
+
+db-migrate:
+	@echo "Running database migrations..."
+	@mysql -u crawler_user -p'crawler_password123' url_crawler < internal/database/migrations_mysql.sql
+	@echo "✅ Migrations completed successfully!"
+
 build:
 	@echo "Building..."
-	
-	
 	@go build -o main cmd/api/main.go
 
 # Run the application
