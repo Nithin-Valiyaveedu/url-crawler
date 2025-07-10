@@ -1,16 +1,97 @@
+version: "3.8"
+
 services:
-  mysql_bp:
-    image: mysql:latest
+  mysql:
+    image: mysql:8.0
+    container_name: url-crawler-mysql
     restart: unless-stopped
     environment:
+      MYSQL_ROOT_PASSWORD: ${URL_CRAWLER_DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${URL_CRAWLER_DB_DATABASE}
       MYSQL_USER: ${URL_CRAWLER_DB_USERNAME}
       MYSQL_PASSWORD: ${URL_CRAWLER_DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${URL_CRAWLER_DB_ROOT_PASSWORD}
     ports:
-      - "${BLUEPRINT_DB_PORT}:3306"
+      - "${URL_CRAWLER_DB_PORT}:3306"
     volumes:
-      - mysql_volume_bp:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
+      - ./internal/database/migrations_mysql.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    environment:
+      # Server Configuration
+      PORT: 8080
+      SERVER_READ_TIMEOUT: ${SERVER_READ_TIMEOUT}
+      SERVER_WRITE_TIMEOUT: ${SERVER_WRITE_TIMEOUT}
+      SERVER_IDLE_TIMEOUT: ${SERVER_IDLE_TIMEOUT}
+
+      # Database Configuration (MySQL)
+      URL_CRAWLER_DB_HOST: ${URL_CRAWLER_DB_HOST}
+      URL_CRAWLER_DB_PORT: ${URL_CRAWLER_DB_PORT}
+      URL_CRAWLER_DB_USERNAME: ${URL_CRAWLER_DB_USERNAME}
+      URL_CRAWLER_DB_PASSWORD: ${URL_CRAWLER_DB_PASSWORD}
+
+      DB_MAX_OPEN: 50
+      DB_MAX_IDLE: 50
+      DB_MAX_LIFE: 0
+
+      # Crawler Configuration
+      CRAWLER_TIMEOUT: ${CRAWLER_TIMEOUT}
+      CRAWLER_USER_AGENT: ${CRAWLER_USER_AGENT}
+      CRAWLER_MAX_REDIRECTS: ${CRAWLER_MAX_REDIRECTS}
+      CRAWLER_MAX_LINKS_CHECK: ${CRAWLER_MAX_LINKS_CHECK}
+      CRAWLER_REQUEST_DELAY: ${CRAWLER_REQUEST_DELAY}
+      CRAWLER_MAX_CONTENT_SIZE: ${CRAWLER_MAX_CONTENT_SIZE}
+      CRAWLER_ALLOWED_DOMAINS: ${CRAWLER_ALLOWED_DOMAINS}
+      CRAWLER_BLOCKED_DOMAINS: ${CRAWLER_BLOCKED_DOMAINS}
+      CRAWLER_RESPECT_ROBOTS: ${CRAWLER_RESPECT_ROBOTS}
+
+      # Queue Configuration
+      QUEUE_WORKERS: ${QUEUE_WORKERS}
+      QUEUE_BUFFER_SIZE: ${QUEUE_BUFFER_SIZE}
+      QUEUE_MAX_RETRIES: ${QUEUE_MAX_RETRIES}
+      QUEUE_RETRY_DELAY: ${QUEUE_RETRY_DELAY}
+
+      # Authentication Configuration
+      AUTH_REQUIRED: ${AUTH_REQUIRED}
+      API_KEY_DEV: ${API_KEY_DEV}
+      ENVIRONMENT: ${ENVIRONMENT}
+      # API_KEY_PROD=production-api-key-here
+
+      # Rate Limiting Configuration
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED}
+      RATE_LIMIT_REQUESTS_PER_MINUTE: ${RATE_LIMIT_REQUESTS_PER_MINUTE}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW}
+
+      # URL Crawler Configuration
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY}
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    working_dir: /app
+    image: node:20-alpine
+    volumes:
+      - ./frontend:/app
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+      VITE_API_KEY: ${VITE_API_KEY}
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - backend
 
 volumes:
-  mysql_volume_bp:
+  mysql_data:
