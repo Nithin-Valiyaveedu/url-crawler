@@ -2,6 +2,8 @@
 
 A comprehensive URL Crawler application with real-time crawling analysis, visualization, and Firecrawl integration. Built with Go backend, React frontend, and MySQL database.
 
+> **Initial Project Scaffolding was done with** [go-blueprint](https://github.com/Melkeydev/go-blueprint) - A CLI tool that allows users to spin up a quick Go project.
+
 ## Demo Video
 
 ### 🎬 See the URL Crawler in Action
