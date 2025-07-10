@@ -63,15 +63,22 @@ const getCrawlResults = async (
 
   const response = await axiosInstance.get(ENDPOINTS.CRAWL, { params });
   const data = response.data as PaginatedResponse<CrawlResult>;
-
   // Transform date strings to Date objects
-  data.results = data.results.map((result) => ({
-    ...result,
-    createdAt: new Date(result.createdAt),
-    updatedAt: new Date(result.updatedAt),
-  }));
-
-  return data;
+  if (data.results !== null) {
+    data.results = data.results.map((result) => ({
+      ...result,
+      createdAt: new Date(result.createdAt),
+      updatedAt: new Date(result.updatedAt),
+    }));
+    return data;
+  }
+  return {
+    results: [],
+    total: 0,
+    page: 1,
+    pageSize: 10,
+    totalPages: 1,
+  };
 };
 
 // Get single crawl result
