@@ -79,6 +79,32 @@ func (bl *BrokenLinks) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, bl)
 }
 
+// ExternalLinks is a slice of strings representing external link URLs
+type ExternalLinks []string
+
+// Value implements the driver.Valuer interface for database storage
+func (el ExternalLinks) Value() (driver.Value, error) {
+	if el == nil {
+		return "[]", nil
+	}
+	return json.Marshal(el)
+}
+
+// Scan implements the sql.Scanner interface for database retrieval
+func (el *ExternalLinks) Scan(value interface{}) error {
+	if value == nil {
+		*el = ExternalLinks{}
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(bytes, el)
+}
+
 // CrawlResult represents the complete analysis result of a crawled URL
 type CrawlResult struct {
 	ID                     string        `json:"id" db:"id"`
@@ -91,6 +117,7 @@ type CrawlResult struct {
 	HasLoginForm           bool          `json:"hasLoginForm" db:"has_login_form"`
 	HeadingCounts          HeadingCounts `json:"headingCounts" db:"heading_counts"`
 	BrokenLinks            BrokenLinks   `json:"brokenLinks" db:"broken_links"`
+	ExternalLinks          ExternalLinks `json:"externalLinks" db:"external_links"`
 	Status                 CrawlStatus   `json:"status" db:"status"`
 	ErrorMessage           *string       `json:"errorMessage,omitempty" db:"error_message"`
 	CreatedAt              time.Time     `json:"createdAt" db:"created_at"`

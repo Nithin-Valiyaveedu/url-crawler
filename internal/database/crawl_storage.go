@@ -25,8 +25,8 @@ func (cs *CrawlStorage) SaveCrawlResult(result *models.CrawlResult) error {
 		INSERT INTO crawl_results (
 			id, url, title, html_version, internal_links_count, external_links_count,
 			inaccessible_links_count, has_login_form, heading_counts, broken_links,
-			status, error_message, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			external_links, status, error_message, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			title = VALUES(title),
 			html_version = VALUES(html_version),
@@ -36,6 +36,7 @@ func (cs *CrawlStorage) SaveCrawlResult(result *models.CrawlResult) error {
 			has_login_form = VALUES(has_login_form),
 			heading_counts = VALUES(heading_counts),
 			broken_links = VALUES(broken_links),
+			external_links = VALUES(external_links),
 			status = VALUES(status),
 			error_message = VALUES(error_message),
 			updated_at = VALUES(updated_at)
@@ -52,6 +53,7 @@ func (cs *CrawlStorage) SaveCrawlResult(result *models.CrawlResult) error {
 		result.HasLoginForm,
 		result.HeadingCounts,
 		result.BrokenLinks,
+		result.ExternalLinks,
 		result.Status,
 		result.ErrorMessage,
 		result.CreatedAt,
@@ -86,7 +88,7 @@ func (cs *CrawlStorage) GetCrawlResult(id string) (*models.CrawlResult, error) {
 	query := `
 		SELECT id, url, title, html_version, internal_links_count, external_links_count,
 			   inaccessible_links_count, has_login_form, heading_counts, broken_links,
-			   status, error_message, created_at, updated_at
+			   external_links, status, error_message, created_at, updated_at
 		FROM crawl_results 
 		WHERE id = ?
 	`
@@ -106,6 +108,7 @@ func (cs *CrawlStorage) GetCrawlResult(id string) (*models.CrawlResult, error) {
 		&result.HasLoginForm,
 		&result.HeadingCounts,
 		&result.BrokenLinks,
+		&result.ExternalLinks,
 		&result.Status,
 		&result.ErrorMessage,
 		&result.CreatedAt,
@@ -170,7 +173,7 @@ func (cs *CrawlStorage) GetCrawlResults(filters models.CrawlFilters) (*models.Pa
 	query := fmt.Sprintf(`
 		SELECT id, url, title, html_version, internal_links_count, external_links_count,
 			   inaccessible_links_count, has_login_form, heading_counts, broken_links,
-			   status, error_message, created_at, updated_at
+			   external_links, status, error_message, created_at, updated_at
 		FROM crawl_results 
 		%s
 		ORDER BY %s %s
@@ -201,6 +204,7 @@ func (cs *CrawlStorage) GetCrawlResults(filters models.CrawlFilters) (*models.Pa
 			&result.HasLoginForm,
 			&result.HeadingCounts,
 			&result.BrokenLinks,
+			&result.ExternalLinks,
 			&result.Status,
 			&result.ErrorMessage,
 			&result.CreatedAt,
