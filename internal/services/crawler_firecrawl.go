@@ -63,7 +63,8 @@ func (fs *FirecrawlService) AnalyzeURL(targetURL string) (*models.CrawlResult, e
 		HeadingCounts: models.HeadingCounts{
 			H1: 0, H2: 0, H3: 0, H4: 0, H5: 0, H6: 0,
 		},
-		BrokenLinks: models.BrokenLinks{},
+		BrokenLinks:   models.BrokenLinks{},
+		ExternalLinks: models.ExternalLinks{},
 	}
 
 	log.Printf("Starting Firecrawl analysis for URL: %s", targetURL)
@@ -172,7 +173,36 @@ func (fs *FirecrawlService) detectLoginForm(html string) bool {
 		}
 	}
 
-	if !hasPasswordField {
+	// Look for email fields (for email-only login forms)
+	emailPatterns := []string{
+		`type="email"`,
+		`type='email'`,
+		`input[type="email"]`,
+		`input[type='email']`,
+		`name="email"`,
+		`name='email'`,
+		`name="username"`,
+		`name='username'`,
+		`name="user"`,
+		`name='user'`,
+		`placeholder="email"`,
+		`placeholder='email'`,
+		`placeholder="username"`,
+		`placeholder='username'`,
+		`placeholder="user"`,
+		`placeholder='user'`,
+	}
+
+	hasEmailField := false
+	for _, pattern := range emailPatterns {
+		if strings.Contains(htmlLower, pattern) {
+			hasEmailField = true
+			break
+		}
+	}
+
+	// If we have neither password nor email fields, it's not a login form
+	if !hasPasswordField && !hasEmailField {
 		return false
 	}
 
@@ -193,7 +223,18 @@ func (fs *FirecrawlService) detectLoginForm(html string) bool {
 	}
 
 	// If we have a password field and multiple login indicators, it's likely a login form
-	return indicatorCount >= 2
+	// OR if we have an email field and multiple login indicators, it's likely a login form
+	if hasPasswordField && indicatorCount >= 2 {
+		return true
+	}
+
+	// For email-only forms, we might want to be a bit more strict
+	// since email fields are more common in non-login contexts
+	if hasEmailField && indicatorCount >= 3 {
+		return true
+	}
+
+	return false
 }
 
 // countHeadings counts H1-H6 headings in HTML
@@ -235,15 +276,24 @@ func (fs *FirecrawlService) analyzeLinks(html string, result *models.CrawlResult
 	linkRegex := regexp.MustCompile(`(?i)href=["']([^"']+)["']`)
 	matches := linkRegex.FindAllStringSubmatch(html, -1)
 
+	log.Printf("Link analysis: Found %d total link matches", len(matches))
+
 	internalCount := 0
 	externalCount := 0
+	var externalLinks []string
 
 	for _, match := range matches {
 		if len(match) > 1 {
 			href := match[1]
-			if strings.HasPrefix(href, "http") {
+			// Clean up and validate the href
+			href = strings.TrimSpace(href)
+
+			if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") {
+				// This is an external link
 				externalCount++
-			} else if strings.HasPrefix(href, "/") || strings.HasPrefix(href, "#") {
+				externalLinks = append(externalLinks, href)
+			} else if strings.HasPrefix(href, "/") || strings.HasPrefix(href, "#") || !strings.Contains(href, "://") {
+				// This is an internal link (relative paths, anchors, or no protocol)
 				internalCount++
 			}
 		}
@@ -251,8 +301,19 @@ func (fs *FirecrawlService) analyzeLinks(html string, result *models.CrawlResult
 
 	result.InternalLinksCount = internalCount
 	result.ExternalLinksCount = externalCount
+	result.ExternalLinks = models.ExternalLinks(externalLinks)
 
-	log.Printf("Link analysis: Internal=%d, External=%d", internalCount, externalCount)
+	log.Printf("Link analysis: Internal=%d, External=%d, External URLs captured=%d",
+		internalCount, externalCount, len(externalLinks))
+
+	// Log first few external links for debugging (limit to avoid spam)
+	if len(externalLinks) > 0 {
+		maxToShow := 5
+		if len(externalLinks) < maxToShow {
+			maxToShow = len(externalLinks)
+		}
+		log.Printf("Sample external links: %v", externalLinks[:maxToShow])
+	}
 }
 
 // detectHTMLVersion detects HTML version from DOCTYPE or content
