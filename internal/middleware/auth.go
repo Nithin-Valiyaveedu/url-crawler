@@ -24,7 +24,6 @@ func NewAuthConfig(cfg config.AuthConfig) *AuthConfig {
 		SkipPaths: []string{
 			"/health",
 			"/api/health",
-			"/", // Allow root path for basic health check
 		},
 	}
 
